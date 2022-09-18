@@ -64,7 +64,7 @@ let
   androidUserHome = "${userHome}/.android";
   androidAvdHome = "${androidUserHome}/avd";
 
-  qtBas = pkgs.qt5.qtbase.override { developerBuild = true; };
+  qtBase = pkgs.qt5.qtbase; #.override { developerBuild = true; };
 in
 pkgs.mkShell {
   name = "android-nix-playground";
@@ -83,8 +83,8 @@ pkgs.mkShell {
     # libvirt
     glibc
     debianutils
-    #qt5.wrapQtAppsHook
-    #qtBase
+    qt5.wrapQtAppsHook
+    qtBase
     qemu_full
   ]);
 
@@ -110,7 +110,7 @@ pkgs.mkShell {
   IDEA_PROPERTIES = "${userHome}/.idea-bin/idea.properties";
   ANDROID_USER_HOME = "${androidUserHome}";
   ANDROID_AVD_HOME = "${androidAvdHome}";
-  #QT_PLUGIN_PATH = "${qtBase}/${qtBase.qtPluginPrefix}";
+  QT_PLUGIN_PATH = "${qtBase}/${qtBase.qtPluginPrefix}";
 
   shellHook = ''
     mkdir -p ${androidAvdHome}
@@ -125,8 +125,8 @@ pkgs.mkShell {
       cmake.dir=$cmake_root
     EOF
 
-    # ln -s ${androidEmulator}/bin/run-test-emulator ${runEmulator}
-    # wrapProgram ${runEmulator} --prefix QT_PLUGIN_PATH : "${pkgs.qt5.qtbase}/${pkgs.qt5.qtbase.qtPluginPrefix}"
+    ln -s ${androidEmulator}/bin/run-test-emulator ${runEmulator}
+    wrapProgram ${runEmulator} --prefix QT_PLUGIN_PATH : "${pkgs.qt5.qtbase}/${pkgs.qt5.qtbase.qtPluginPrefix}"
   '';
 }
 

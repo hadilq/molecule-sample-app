@@ -1,6 +1,5 @@
 *.iml
 .gradle
-.user-home
 /local.properties
 .DS_Store
 /build
@@ -8,3 +7,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+run-emulator
+.run-emulator-wrapped
+.run-emulator-wrapped_
+.run-emulator-wrapped__
