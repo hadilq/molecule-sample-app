@@ -60,11 +60,9 @@ let
   jdk = "${pkgs.android-studio.unwrapped}/jre";
   aapt2 = "${androidSdkHome}/build-tools/${builtins.toString (builtins.tail android.versions.buildTools)}/aapt2";
   userHome = "${builtins.toString ./.user-home}";
-  runEmulator = "${builtins.toString ./run-emulator}";
   androidUserHome = "${userHome}/.android";
   androidAvdHome = "${androidUserHome}/avd";
 
-  qtBase = pkgs.qt5.qtbase; #.override { developerBuild = true; };
 in
 pkgs.mkShell {
   name = "android-nix-playground";
@@ -75,21 +73,8 @@ pkgs.mkShell {
   ] ++ (with pkgs; [
     git
     android-studio
-    android-studio.unwrapped
     gradle
-    # qtemu
-    # xorg.libxcb
-    # virt-manager
-    # libvirt
-    glibc
-    debianutils
-    qt5.wrapQtAppsHook
-    qtBase
-    qemu_full
   ]);
-
-  # nativeBuildInputs = with pkgs; [
-  # ];
 
   LANG = "C.UTF-8";
   LC_ALL = "C.UTF-8";
@@ -110,7 +95,6 @@ pkgs.mkShell {
   IDEA_PROPERTIES = "${userHome}/.idea-bin/idea.properties";
   ANDROID_USER_HOME = "${androidUserHome}";
   ANDROID_AVD_HOME = "${androidAvdHome}";
-  QT_PLUGIN_PATH = "${qtBase}/${qtBase.qtPluginPrefix}";
 
   shellHook = ''
     mkdir -p ${androidAvdHome}
@@ -124,9 +108,6 @@ pkgs.mkShell {
       ndk.dir=$ANDROID_NDK_ROOT
       cmake.dir=$cmake_root
     EOF
-
-    ln -s ${androidEmulator}/bin/run-test-emulator ${runEmulator}
-    wrapProgram ${runEmulator} --prefix QT_PLUGIN_PATH : "${pkgs.qt5.qtbase}/${pkgs.qt5.qtbase.qtPluginPrefix}"
   '';
 }
 

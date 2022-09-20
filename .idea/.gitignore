@@ -1,15 +1,6 @@
-# Default ignored files
-/shelf/
-/workspace.xml
-/caches
-/libraries
-/modules.xml
-/workspace.xml
-/navEditor.xml
-/assetWizardSettings.xml
-/.name
-/compiler.xml
-/gradle.xml
-/inspectionProfiles
-/misc.xml
+
+*
+*.*
+!.gitignore
+!codeStyles
 

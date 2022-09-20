@@ -9,3 +9,4 @@ set softtabstop=2
 set shiftwidth=2
 inoremap jj <Esc>
 
+set clipboard=unnamed

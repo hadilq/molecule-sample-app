@@ -1,4 +1,6 @@
-.android
-.bash_history
-.gradle
+
+*
+*.*
+!.gitignore
+!.ideavimrc
 
