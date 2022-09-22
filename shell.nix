@@ -1,8 +1,4 @@
 let
-  # pkgs = import <nixpkgs> {
-  #     config.android_sdk.accept_license = true;
-  #     config.allowUnfree = true;
-  # };
   pkgs = import (
       fetchTarball https://github.com/nixos/nixpkgs/tarball/dbc00be4985fdef654656092feb35ca2412f2a2b
     ) {
@@ -57,7 +53,7 @@ let
   androidSdk = androidComposition.androidsdk;
   androidSdkHome = "${androidSdk}/libexec/android-sdk";
   platformTools = androidComposition.platform-tools;
-  jdk = "${pkgs.android-studio.unwrapped}/jre";
+  # jdk = "${pkgs.android-studio.unwrapped}/jre";
   aapt2 = "${androidSdkHome}/build-tools/${builtins.toString (builtins.tail android.versions.buildTools)}/aapt2";
   userHome = "${builtins.toString ./.user-home}";
   androidUserHome = "${userHome}/.android";
@@ -73,13 +69,14 @@ pkgs.mkShell {
   ] ++ (with pkgs; [
     git
     android-studio
+    jetbrains.jdk
     gradle
   ]);
 
   LANG = "C.UTF-8";
   LC_ALL = "C.UTF-8";
 
-  # JAVA_HOME = jdk;
+  # JAVA_HOME = pkgs.jetbrains.jdk;
   # Note: ANDROID_HOME is deprecated. Use ANDROID_SDK_ROOT.
   ANDROID_SDK_ROOT = androidSdkHome;
   ANDROID_HOME = androidSdkHome;

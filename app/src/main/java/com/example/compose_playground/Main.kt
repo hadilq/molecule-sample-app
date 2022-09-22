@@ -1,3 +1,18 @@
+/**
+ * Copyright 2022 Hadi Lashkari Ghouchani
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.example.compose_playground
 
 import android.os.Bundle
@@ -10,47 +25,55 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewModelScope
-import app.cash.molecule.RecompositionClock
-import app.cash.molecule.launchMolecule
 import com.example.compose_playground.greeting.Greeting
 import com.example.compose_playground.greeting.GreetingAction
 import com.example.compose_playground.greeting.GreetingPresenter
 import com.example.compose_playground.greeting.GreetingState
 import com.example.compose_playground.ui.theme.ComposeplaygroundTheme
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
 @Stable
-sealed interface MainState {
-    data class Greeting(val greeting: GreetingState) : MainState
+data class MainState(
+    val stack: PersistentList<MainPageState>,
+    val lastAction: MainAction,
+)
+
+@Stable
+sealed interface MainPageState {
+    data class Greeting(val greeting: GreetingState) : MainPageState
 }
 
+@Stable
 sealed interface MainAction {
-    val initialAction: MainAction
-        get() = LaunchGreeting(GreetingAction.Display(0))
-
     data class LaunchGreeting(val greetingAction: GreetingAction) : MainAction
+
     sealed interface PopStack : MainAction {
         object Flip : PopStack
         object Flop : PopStack
     }
 }
 
-class MainActivity : ComponentActivity() {
+private val initialMainAction: MainAction = MainAction.LaunchGreeting(GreetingAction.Display(0))
 
-    private val viewModel by lazy(LazyThreadSafetyMode.NONE) {
-        ViewModelProvider(this)[MainViewModel::class.java]
-    }
+/**
+ * Because `MainAction.PopStack` shouldn't have properties, we use the flip-flop strategy to avoid
+ * recomposition to fall into an infinite loop!
+ */
+fun ((MainAction) -> Unit).popStack() {
+    invoke(MainAction.PopStack.Flip)
+    invoke(MainAction.PopStack.Flop)
+}
+
+class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         Log.d("MainActivity", "onCreate")
+        rootLogic.action(RootAction.Main(initialMainAction))
+        val mainAction: (MainAction) -> Unit = { rootLogic.action(RootAction.Main(it)) }
         setContent {
             ComposeplaygroundTheme {
                 // A surface container using the 'background' color from the theme
@@ -58,56 +81,39 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    val state by viewModel.state.collectAsState()
-                    Main(action = { viewModel.action(it) }, state)
+                    val state by rootLogic.state.collectAsState()
+                    when (@Suppress("UnnecessaryVariable") val s = state) {
+                        is RootState.UserFlow ->
+                            Main(action = mainAction, s.mainState)
+                        else -> {}
+                    }
                 }
             }
             BackHandler(true) {
                 Log.d("MainActivity", "onBackPressed")
-                viewModel.action(MainAction.PopStack.Flip)
-                viewModel.action(MainAction.PopStack.Flop)
+                mainAction.popStack()
             }
         }
     }
 }
 
-class MainViewModel : ViewModel() {
-
-    private val _action: MutableSharedFlow<MainAction> = MutableSharedFlow()
-
-    val state: StateFlow<MainState> =
-        viewModelScope.launchMolecule(clock = RecompositionClock.Immediate) {
-            val action by _action.collectAsState(
-                initial = MainAction.LaunchGreeting(GreetingAction.Display(0))
-            )
-            Log.d("MainViewModel.state", "action $action")
-            MainPresenter(action = action)
-        }
-
-    val action: (MainAction) -> Unit = { a ->
-        Log.d("MainViewModel.action", "action $a")
-        viewModelScope.launch {
-            _action.emit(a)
-        }
-    }
-}
-
+/**
+ * The logic of `Main`. Notice it has aa longer lifetime than `Main`. It's lifecycle must be
+ * equivalent of the lifecycle of `ViewModel` of the `MainActivity`.
+ */
 @Composable
-fun MainPresenter(action: MainAction): MainState {
-    var stack by remember { mutableStateOf(persistentListOf<MainState>()) }
-    var lastAction: MainAction by remember {
-        mutableStateOf(
-            MainAction.LaunchGreeting(
-                GreetingAction.Display(
-                    0
-                )
-            )
-        )
-    }
-    when (@Suppress("UnnecessaryVariable") val a = action) {
+fun MainPresenter(
+    action: MainAction,
+    state: MainState,
+    greetingPresenter: @Composable (action: GreetingAction) -> GreetingState = { GreetingPresenter(it) },
+): MainState {
+    var stack = state.stack
+    val lastAction = state.lastAction
+    if (action == initialMainAction && stack.isNotEmpty()) return state
+    when (action) {
         is MainAction.LaunchGreeting -> {
-            val greeting = GreetingPresenter(action = a.greetingAction)
-            val main = MainState.Greeting(greeting)
+            val greeting = greetingPresenter(action = action.greetingAction)
+            val main = MainPageState.Greeting(greeting)
             if (stack.isEmpty() || stack.last() != main) {
                 stack = stack.add(main)
             }
@@ -119,26 +125,26 @@ fun MainPresenter(action: MainAction): MainState {
             }
         }
     }
-    Log.d("MainPresenter", "stack $stack action $action")
-    lastAction = action
-    return stack.last()
+    Log.d("MainPresenter", "stack $stack action $action previous: $lastAction")
+    return MainState(stack, action)
 }
 
-
+/**
+ * The view counterpart of `MainPresenter`. Notice it has shorter lifetime than `MainPresenter`.
+ */
 @Composable
 fun Main(action: (MainAction) -> Unit, state: MainState) {
-    when (state) {
-        is MainState.Greeting -> Greeting(
+    when (val pageState = state.stack.last()) {
+        is MainPageState.Greeting -> Greeting(
             action = {
                 when (it) {
                     is GreetingAction.Display -> action(MainAction.LaunchGreeting(it))
                     is GreetingAction.Previous -> {
-                        action(MainAction.PopStack.Flip)
-                        action(MainAction.PopStack.Flop)
+                        action.popStack()
                     }
                 }
             },
-            state = state.greeting
+            state = pageState.greeting
         )
     }
 }

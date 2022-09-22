@@ -1,15 +1,39 @@
-buildscript {
-    ext {
-        compose_version = '1.0.1'
-    }
-}// Top-level build file where you can add configuration options common to all sub-projects/modules.
+buildscript {}// Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
-    id 'com.android.application' version '7.1.3' apply false
-    id 'com.android.library' version '7.1.3' apply false
-    id 'org.jetbrains.kotlin.android' version '1.5.21' apply false
-    id 'app.cash.molecule' version '0.4.0'
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.library) apply false
+    alias(libs.plugins.kotlin.android) apply false
+    alias(libs.plugins.molecule) apply false
 }
 
 task clean(type: Delete) {
     delete rootProject.buildDir
+}
+
+subprojects {
+    plugins.withId('java-base') {
+        java {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(11)
+            }
+        }
+    }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompile).configureEach { task ->
+        task.kotlinOptions {
+            jvmTarget = '11'
+        }
+    }
+
+    plugins.withType(com.android.build.gradle.BasePlugin).configureEach { plugin ->
+        def android = plugin.extension
+        android.compileSdkVersion libs.versions.compileSdk.get().toInteger()
+        android.defaultConfig {
+            minSdkVersion libs.versions.minSdk.get().toInteger()
+        }
+        android.lintOptions {
+            checkDependencies true
+            checkReleaseBuilds false // Full lint runs as part of 'build' task.
+        }
+    }
 }
