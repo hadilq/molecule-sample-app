@@ -47,5 +47,6 @@ them on different trees. Also we rename hoists to presenters, as it's suggested 
 
 So in the end, we have four trees, where two of them, the view and logic trees, are trees that
 is built with Jetpack Compose, and the other two trees, the state and action trees, is built
-by simple object references. You can find the root of all those trees in the [RootLogic.kt](https://github.com/hadilq/molecule-sample-app/blob/main/app/src/main/java/com/example/compose_playground/RootLogic.kt)
-file. Hope it solves some problems and makes our life easier.
+by simple object references. You can find the root of logic, state, and action trees in the [RootLogic.kt](https://github.com/hadilq/molecule-sample-app/blob/main/app/src/main/java/com/example/compose_playground/RootLogic.kt)
+file. Also the root of the view tree is in the [Main.kt](https://github.com/hadilq/molecule-sample-app/blob/main/app/src/main/java/com/example/compose_playground/Main.kt) file.
+Hope it solves some problems and makes our life easier.
