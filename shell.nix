@@ -1,3 +1,26 @@
+#
+#  Copyright 2022 Hadi Lashkari Ghouchani
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+
+# This is a file to define general dependencies of this app, which we usually don't mention
+# in the repositories of our Android apps, but here it's!
+# You can use nix package manager in any Linux machine to gather the dependencies of this app
+# and have the environment ready for starting the development! But if you don't have that
+# no worried! Just use your ordinary setup. By spending a little time and some trial and errors
+# you'll get there as usual ;)
+
 let
   pkgs = import (
       fetchTarball https://github.com/nixos/nixpkgs/tarball/dbc00be4985fdef654656092feb35ca2412f2a2b
