@@ -3,7 +3,7 @@
 # Problem
 It's started when [P.Y.] in Twitter shared this tweet and his post,
 
-![doc/p-y.png]
+![py](doc/p-y.png)
 
 which is a correct complain about introducing a new set of race conditions to Android apps
 by using `WhileSubscribed()`. He wrote a post, which is basically a reply to a [post from the Android Developers blog](https://medium.com/androiddevelopers/things-to-know-about-flows-sharein-and-statein-operators-20e6ccb2bc74)
@@ -15,7 +15,7 @@ hand, the scope of ViewModel itself is too long for the logic of each composable
 
 The next tweet that is related to this repository is
 
-![doc/jake-wharton-hadi.png]
+![Jake](doc/jake-wharton-hadi.png)
 
 As you can see my first reaction was that we need to keep the ViewModels, but Jake is right.
 
@@ -24,27 +24,27 @@ In this sample I tried Jake's solution to the problem, which I think is the [Mol
 It's a very simple app that have just one page, but by adding a number on it, we'll use it to make
 this app a multiple page app.
 
-![doc/record.gif]
+![Record](doc/record.gif)
 
 Before this, we separate the logic of composable functions by using state hoisting, where
 you can find more details in [Jetpack Compose basics](https://developer.android.com/codelabs/jetpack-compose-basics).
 The tree of the views will look like this.
 
-![doc/view-tree.svg]
+![View Tree](doc/view-tree.svg)
 
 But as we mentioned before lifetime of the logic is wider than the lifetime of the view, so we can
 separate the hoist composable functions. 
 
-![doc/view-logic-tree.svg]
+![View Logic Tree](doc/view-logic-tree.svg)
 
 Where the logic composable functions live longer than the view composable functions. But it cannot
 happen unless we share `Action` and `State` object between them to be able to decouple them and put
 them on different trees. Also we rename hoists to presenters, as it's suggested in the
 [Molecule library](https://github.com/cashapp/molecule).
 
-![doc/view-state-logic-tree.svg]
+![View State Logic Tree](doc/view-state-logic-tree.svg)
 
 So in the end, we have four trees, where two of them, the view and logic trees, are trees that
 is built with Jetpack Compose, and the other two trees, the state and action trees, is built
-by simple object references. You can find the root of all those trees in the [RootLogic.kt]() file.
-Hope it solves some problems and makes our life easier.
+by simple object references. You can find the root of all those trees in the [RootLogic.kt](https://github.com/hadilq/molecule-sample-app/blob/main/app/src/main/java/com/example/compose_playground/RootLogic.kt)
+file. Hope it solves some problems and makes our life easier.
