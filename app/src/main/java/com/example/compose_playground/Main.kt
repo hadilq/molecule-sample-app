@@ -23,16 +23,17 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.example.compose_playground.greeting.Greeting
 import com.example.compose_playground.greeting.GreetingAction
 import com.example.compose_playground.greeting.GreetingPresenter
 import com.example.compose_playground.greeting.GreetingState
 import com.example.compose_playground.ui.theme.ComposeplaygroundTheme
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.persistentListOf
 
 @Stable
 data class MainState(
@@ -50,7 +51,6 @@ sealed interface MainAction {
     data class LaunchGreeting(val greetingAction: GreetingAction) : MainAction
 
     sealed interface PopStack : MainAction {
-        object Flip : PopStack
         object Flop : PopStack
     }
 }
@@ -62,7 +62,6 @@ private val initialMainAction: MainAction = MainAction.LaunchGreeting(GreetingAc
  * recomposition to fall into an infinite loop!
  */
 fun ((MainAction) -> Unit).popStack() {
-    invoke(MainAction.PopStack.Flip)
     invoke(MainAction.PopStack.Flop)
 }
 
@@ -118,9 +117,8 @@ fun MainPresenter(
                 stack = stack.add(main)
             }
         }
-        is MainAction.PopStack.Flip -> Unit
         is MainAction.PopStack.Flop -> {
-            if (lastAction == MainAction.PopStack.Flip && stack.size > 1) {
+            if (stack.size > 1) {
                 stack = stack.removeAt(stack.size - 1)
             }
         }
