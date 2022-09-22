@@ -6,7 +6,8 @@ It's started when [P.Y.] in Twitter shared this tweet and his post,
 ![py](doc/p-y.png)
 
 which is a correct complain about introducing a new set of race conditions to Android apps
-by using `WhileSubscribed()`. He wrote a post, which is basically a reply to a [post from the Android Developers blog](https://medium.com/androiddevelopers/things-to-know-about-flows-sharein-and-statein-operators-20e6ccb2bc74)
+by using `WhileSubscribed()`. He wrote [a post](https://py.hashnode.dev/whilesubscribed5000),
+which is basically a reply to [a post from the Android Developers blog](https://medium.com/androiddevelopers/things-to-know-about-flows-sharein-and-statein-operators-20e6ccb2bc74)
 by Manuel Vivo. The problem in the core is that by using AAC ViewModel we don't know the scope
 of the logic related to each of composable functions in the view! Notice the scope of each
 composable function in the view is not reliable as the configuration changes would end the scope,
