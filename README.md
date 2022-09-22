@@ -1,7 +1,7 @@
 # Android sample app
 
 # Problem
-It's started when [P.Y.] in Twitter shared this tweet and his post,
+It's started when [P.Y.](https://twitter.com/Piwai/status/1564751077798322176?s=20&t=O5ZodUa-_Qtph979HYlGcQ) in Twitter shared this tweet and his post,
 
 ![py](doc/p-y.png)
 
@@ -14,7 +14,7 @@ composable function in the view is not reliable as the configuration changes wou
 where it should not be, because the logic should survive the configuration change. But on the other
 hand, the scope of ViewModel itself is too long for the logic of each composable function!
 
-The next tweet that is related to this repository is
+The [next tweet](https://twitter.com/JakeWharton/status/1571588910005850115?s=20&t=O5ZodUa-_Qtph979HYlGcQ) that is related to this repository is
 
 ![Jake](doc/jake-wharton-hadi.png)
 
