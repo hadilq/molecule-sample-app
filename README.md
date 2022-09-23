@@ -50,5 +50,8 @@ is built with Jetpack Compose, and the other two trees, the state and action tre
 by simple object references. You can find the root of logic, state, and action trees in the [RootLogic.kt](https://github.com/hadilq/molecule-sample-app/blob/main/app/src/main/java/com/example/compose_playground/RootLogic.kt)
 file. Also the root of the view tree is in the [Main.kt](https://github.com/hadilq/molecule-sample-app/blob/main/app/src/main/java/com/example/compose_playground/Main.kt) file.
 
+# Problems
+There's a know problem that you can follow up in [this Molecule issue](https://github.com/cashapp/molecule/issues/122).
+
 Please feel free to give me your feedback in Twitter, or make an issue, or a PR on this repository.
 Hope it solves some problems and makes our life easier.
