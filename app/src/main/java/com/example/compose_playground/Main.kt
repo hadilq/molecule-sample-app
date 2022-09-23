@@ -105,7 +105,9 @@ class MainActivity : ComponentActivity() {
 fun MainPresenter(
     action: MainAction,
     state: MainState,
-    greetingPresenter: @Composable (action: GreetingAction) -> GreetingState = { GreetingPresenter(it) },
+    greetingPresenter: @Composable (action: GreetingAction) -> GreetingState = {
+        GreetingPresenter(it)
+    },
 ): MainState {
     var stack = state.stack
     val lastAction = state.lastAction
