@@ -39,7 +39,7 @@ class RootLogicTest {
         val expected = MainState.Greeting(GreetingState.Greeting(1, "page 1"))
         moleculeFlow(clock = RecompositionClock.Immediate) {
             RootPresenter(
-                actions = events.receiveAsFlow(),
+                upstreamActions = events.receiveAsFlow(),
                 mainPresenter = {
                     mainPresenterFake(action = MainAction.PopStack.Flop, result = expected)
                 }

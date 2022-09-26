@@ -19,21 +19,15 @@ import android.util.Log
 import androidx.compose.runtime.*
 import app.cash.molecule.RecompositionClock
 import app.cash.molecule.launchMolecule
-import com.example.compose_playground.greeting.GreetingAction
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
-
-/**
- * Singleton root of app's logic tree.
- */
-val rootLogic: RootLogic = RootLogicImpl()
 
 @Stable
 sealed class RootState {
@@ -55,6 +49,14 @@ sealed interface RootAction {
     data class Main(val mainAction: MainAction) : RootAction
 }
 
+val initialRootAction = RootAction.Launch
+val initialRootState = RootState.ServiceFlow()
+
+/**
+ * Singleton root of app's logic tree.
+ */
+val rootLogic: RootLogic = RootLogicImpl()
+
 interface RootLogic {
     val scope: Scope
     val state: StateFlow<RootState>
@@ -68,13 +70,26 @@ interface RootLogic {
 private class RootLogicImpl : RootLogic {
 
     private val _action: MutableSharedFlow<RootAction> = MutableSharedFlow()
+    private val _state: MutableStateFlow<RootState> = MutableStateFlow(initialRootState)
 
     override val scope: RootLogic.Scope =
+//        RootLogic.Scope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
         RootLogic.Scope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    override val state: StateFlow<RootState> =
+    override val state: StateFlow<RootState> = _state
+
+    private val molecule: StateFlow<RootState> =
         scope.launchMolecule(clock = RecompositionClock.Immediate) {
-            RootPresenter(actions = _action)
+            val states: MutableSharedFlow<RootState> = remember { MutableSharedFlow() }
+            var rootState: RootState by remember { mutableStateOf(initialRootState) }
+            RootPresenter(downstreamStates = states, state = rootState, upstreamActions = _action)
+            LaunchedEffect(Unit) {
+                states.collect {
+                    _state.value = it
+                    rootState = it
+                }
+            }
+            initialRootState
         }
 
     override val action: (RootAction) -> Unit
@@ -84,7 +99,6 @@ private class RootLogicImpl : RootLogic {
                 _action.emit(a)
             }
         }
-
 }
 
 /**
@@ -92,22 +106,33 @@ private class RootLogicImpl : RootLogic {
  */
 @Composable
 fun RootPresenter(
-    actions: Flow<RootAction>,
-    mainPresenter: @Composable (action: MainAction, state: MainState) -> MainState = { action, state -> MainPresenter(action, state) },
-): RootState {
-    var lastMainState by remember {
-        mutableStateOf(MainState(persistentListOf(), MainAction.LaunchGreeting(GreetingAction.Display(0))))
-    }
-    val action by actions.collectAsState(initial = RootAction.Launch)
-    val a = action
-    Log.d("RootPresenter", "action $a")
-    return when (a) {
-        is RootAction.Launch -> {
-            RootState.ServiceFlow()
-        }
-        is RootAction.Main -> {
-            lastMainState = mainPresenter(action = a.mainAction, lastMainState)
-            RootState.UserFlow(lastMainState)
+    downstreamStates: MutableSharedFlow<RootState>,
+    state: RootState,
+    upstreamActions: Flow<RootAction>,
+    mainPresenter: MainPresenterType = { ss, s, a -> MainPresenter(ss, s, a) },
+) {
+    rememberActionFlow(upstreamActions = upstreamActions) { action ->
+        when (action) {
+            is RootAction.Launch -> {
+                LaunchedEffect(Unit) { downstreamStates.emit(RootState.ServiceFlow()) }
+            }
+            is RootAction.Main -> {
+                fun mapState(mainState: MainState) = RootState.UserFlow(mainState)
+                fun mapAction(rooAction: RootAction.Main) = rooAction.mainAction
+                rememberStateAction(
+                    downstreamStates = downstreamStates,
+                    state = state,
+                    action = action,
+                    mapState = ::mapState,
+                    mapAction = ::mapAction,
+                ) { mainStateFlow, mainActionFlow ->
+                    mainPresenter(
+                        states = mainStateFlow,
+                        state = (state as? RootState.UserFlow)?.mainState ?: initialMainState,
+                        actions = mainActionFlow
+                    )
+                }
+            }
         }
     }
 }
