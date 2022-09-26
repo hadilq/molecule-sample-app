@@ -61,6 +61,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         Log.d("MainActivity", "onCreate")
+        /**
+         * It emits on configuration change, so we have to handle it in the [MainPresenter].
+         */
         rootLogic.action(RootAction.Main(initialMainAction))
         val mainAction: (MainAction) -> Unit = { rootLogic.action(RootAction.Main(it)) }
         setContent {
@@ -99,7 +102,7 @@ fun MainPresenter(
     rememberActionFlow(upstreamActions = upstreamActions) { action ->
         /**
          * On Configuration change, the mainAction is `initialMainAction`, but stack may not be empty,
-         * so we should ignore the action.
+         * so we should ignore this action.
          */
         if (action == initialMainAction && state.stack.isNotEmpty()) return@rememberActionFlow
         Log.d("MainPresenter", "state $state action: $action")
