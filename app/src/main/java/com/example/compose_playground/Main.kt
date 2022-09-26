@@ -25,19 +25,19 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import com.example.compose_playground.greeting.Greeting
-import com.example.compose_playground.greeting.GreetingAction
-import com.example.compose_playground.greeting.GreetingPresenter
-import com.example.compose_playground.greeting.GreetingState
+import com.example.compose_playground.greeting.*
 import com.example.compose_playground.ui.theme.ComposeplaygroundTheme
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import java.util.*
+
+typealias MainPresenterType = @Composable (states: MutableSharedFlow<MainState>, state: MainState, actions: Flow<MainAction>) -> Unit
 
 @Stable
 data class MainState(
     val stack: PersistentList<MainPageState>,
-    val lastAction: MainAction,
 )
 
 @Stable
@@ -49,22 +49,11 @@ sealed interface MainPageState {
 sealed interface MainAction {
     data class LaunchGreeting(val greetingAction: GreetingAction) : MainAction
 
-    sealed interface PopStack : MainAction {
-        object Flip : PopStack
-        object Flop : PopStack
-    }
+    data class PopStack(val id: UUID = UUID.randomUUID()) : MainAction
 }
 
-private val initialMainAction: MainAction = MainAction.LaunchGreeting(GreetingAction.Display(0))
-
-/**
- * Because `MainAction.PopStack` shouldn't have properties, we use the flip-flop strategy to avoid
- * recomposition to fall into an infinite loop!
- */
-fun ((MainAction) -> Unit).popStack() {
-    invoke(MainAction.PopStack.Flip)
-    invoke(MainAction.PopStack.Flop)
-}
+val initialMainAction: MainAction = MainAction.LaunchGreeting(initialGreetingAction)
+val initialMainState: MainState = MainState(persistentListOf())
 
 class MainActivity : ComponentActivity() {
 
@@ -72,6 +61,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         Log.d("MainActivity", "onCreate")
+        /**
+         * It emits on configuration change, so we have to handle it in the [MainPresenter].
+         */
         rootLogic.action(RootAction.Main(initialMainAction))
         val mainAction: (MainAction) -> Unit = { rootLogic.action(RootAction.Main(it)) }
         setContent {
@@ -83,15 +75,14 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val state by rootLogic.state.collectAsState()
                     when (@Suppress("UnnecessaryVariable") val s = state) {
-                        is RootState.UserFlow ->
-                            Main(action = mainAction, s.mainState)
+                        is RootState.UserFlow -> Main(action = mainAction, s.mainState)
                         else -> {}
                     }
                 }
             }
             BackHandler(true) {
                 Log.d("MainActivity", "onBackPressed")
-                mainAction.popStack()
+                mainAction(MainAction.PopStack())
             }
         }
     }
@@ -103,32 +94,55 @@ class MainActivity : ComponentActivity() {
  */
 @Composable
 fun MainPresenter(
-    action: MainAction,
+    downstreamStates: MutableSharedFlow<MainState>,
     state: MainState,
-    greetingPresenter: @Composable (action: GreetingAction) -> GreetingState = {
-        GreetingPresenter(it)
-    },
-): MainState {
-    var stack = state.stack
-    val lastAction = state.lastAction
-    if (action == initialMainAction && stack.isNotEmpty()) return state
-    when (action) {
-        is MainAction.LaunchGreeting -> {
-            val greeting = greetingPresenter(action = action.greetingAction)
-            val main = MainPageState.Greeting(greeting)
-            if (stack.isEmpty() || stack.last() != main) {
-                stack = stack.add(main)
+    upstreamActions: Flow<MainAction>,
+    greetingPresenter: GreetingPresenterType = { ss, a -> GreetingPresenter(ss, a) },
+) {
+    rememberActionFlow(upstreamActions = upstreamActions) { action ->
+        /**
+         * On Configuration change, the mainAction is `initialMainAction`, but stack may not be empty,
+         * so we should ignore this action.
+         */
+        if (action == initialMainAction && state.stack.isNotEmpty()) return@rememberActionFlow
+        Log.d("MainPresenter", "state $state action: $action")
+        when (action) {
+            is MainAction.LaunchGreeting -> {
+                fun mapState(greetingState: GreetingState) =
+                    MainState(state.stack.add(MainPageState.Greeting(greetingState)))
+
+                fun mapAction(launchGreeting: MainAction.LaunchGreeting) =
+                    launchGreeting.greetingAction
+
+                rememberStateAction(
+                    downstreamStates = downstreamStates,
+                    state = state,
+                    action = action,
+                    mapState = ::mapState,
+                    mapAction = ::mapAction
+                ) { greetingStateFlow, greetingActionFlow ->
+                    Log.d("MainPresenter", "MainAction.LaunchGreeting is called")
+                    greetingPresenter(states = greetingStateFlow, actions = greetingActionFlow)
+                }
             }
-        }
-        is MainAction.PopStack.Flip -> Unit
-        is MainAction.PopStack.Flop -> {
-            if (lastAction == MainAction.PopStack.Flip && stack.size > 1) {
-                stack = stack.removeAt(stack.size - 1)
+            is MainAction.PopStack -> {
+                LaunchedEffect(action) {
+                    Log.d(
+                        "MainPresenter",
+                        "LaunchedEffect: MainAction.PopStack stack ${state.stack}"
+                    )
+                    val stack = if (state.stack.size > 1) {
+                        state.stack.removeAt(state.stack.size - 1)
+                    } else state.stack
+                    Log.d(
+                        "MainPresenter",
+                        "LaunchedEffect: MainAction.PopStack stack after: $stack"
+                    )
+                    downstreamStates.emit(MainState(stack))
+                }
             }
         }
     }
-    Log.d("MainPresenter", "stack $stack action $action previous: $lastAction")
-    return MainState(stack, action)
 }
 
 /**
@@ -136,13 +150,15 @@ fun MainPresenter(
  */
 @Composable
 fun Main(action: (MainAction) -> Unit, state: MainState) {
+    if (state.stack.isEmpty()) return
+    Log.d("Main", "is called")
     when (val pageState = state.stack.last()) {
         is MainPageState.Greeting -> Greeting(
             action = {
                 when (it) {
                     is GreetingAction.Display -> action(MainAction.LaunchGreeting(it))
                     is GreetingAction.Previous -> {
-                        action.popStack()
+                        action(MainAction.PopStack())
                     }
                 }
             },

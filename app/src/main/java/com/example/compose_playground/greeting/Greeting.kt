@@ -15,18 +15,26 @@
  */
 package com.example.compose_playground.greeting
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.compose_playground.rememberActionFlow
 import com.example.compose_playground.ui.theme.ComposeplaygroundTheme
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+
+typealias GreetingPresenterType = @Composable (states: MutableSharedFlow<GreetingState>, actions: Flow<GreetingAction>) -> Unit
 
 @Stable
+
 sealed interface GreetingState {
     data class Greeting(
         val count: Int,
@@ -40,14 +48,26 @@ sealed interface GreetingAction {
     object Previous : GreetingAction
 }
 
+val initialGreetingAction = GreetingAction.Display(0)
+val initialGreetingState = GreetingState.Greeting(1, "page 1")
+
 @Composable
-fun GreetingPresenter(action: GreetingAction): GreetingState {
-    return when (action) {
-        is GreetingAction.Display -> {
-            val count = action.count + 1
-            GreetingState.Greeting(count, "page $count")
+fun GreetingPresenter(
+    downstreamStates: MutableSharedFlow<GreetingState>,
+    upstreamActions: Flow<GreetingAction>,
+) {
+    rememberActionFlow(upstreamActions = upstreamActions) { action ->
+        Log.d("GreetingPresenter", "action $action")
+        when (action) {
+            is GreetingAction.Display -> {
+                val count = action.count + 1
+                LaunchedEffect(count) {
+                    Log.d("GreetingPresenter", "LaunchedEffect: count $count")
+                    downstreamStates.emit(GreetingState.Greeting(count, "page $count"))
+                }
+            }
+            is GreetingAction.Previous -> throw IllegalStateException("It should be handled by its parent")
         }
-        GreetingAction.Previous -> TODO("It should be handled by its parrent")
     }
 }
 

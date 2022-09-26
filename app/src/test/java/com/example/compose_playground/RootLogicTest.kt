@@ -16,12 +16,13 @@
 package com.example.compose_playground
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import app.cash.molecule.RecompositionClock
 import app.cash.molecule.moleculeFlow
 import app.cash.turbine.test
-import com.example.compose_playground.greeting.GreetingAction
-import com.example.compose_playground.greeting.GreetingState
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -35,25 +36,38 @@ class RootLogicTest {
 
     @Test
     fun launchRootPresenter() = runTest {
-        val events = Channel<RootAction>()
-        val expected = MainState.Greeting(GreetingState.Greeting(1, "page 1"))
+        val downstreamStates = MutableSharedFlow<RootState>()
+        val upstreamActions = Channel<RootAction>()
         moleculeFlow(clock = RecompositionClock.Immediate) {
             RootPresenter(
-                actions = events.receiveAsFlow(),
-                mainPresenter = {
-                    mainPresenterFake(action = MainAction.PopStack.Flop, result = expected)
-                }
+                downstreamStates = downstreamStates,
+                state = givenRootState,
+                upstreamActions = upstreamActions.receiveAsFlow(),
+                mainPresenter = { ss, _, a -> mainPresenterFake(ss, a) }
             )
+            initialRootState
         }
             .test {
-                assertEquals(RootState.ServiceFlow(), awaitItem())
-                events.send(RootAction.Main(MainAction.LaunchGreeting(GreetingAction.Display(0))))
-                assertEquals(RootState.UserFlow(MainState.Greeting(GreetingState.Greeting(1, "page 1"))), awaitItem())
+                assertEquals(initialRootState, awaitItem())
+                downstreamStates.test {
+                    upstreamActions.send(givenRootAction)
+                    assertEquals(givenRootState, awaitItem())
+                }
             }
     }
 
     @Composable
-    fun mainPresenterFake(action: MainAction, result: MainState): MainState {
-        return result
+    fun mainPresenterFake(
+        downstreamStates: MutableSharedFlow<MainState>,
+        upstreamActions: Flow<MainAction>,
+    ) {
+        LaunchedEffect(upstreamActions) {
+            upstreamActions.collect {
+                downstreamStates.emit(givenMainState)
+            }
+        }
     }
 }
+
+val givenRootState = RootState.UserFlow(givenMainState)
+val givenRootAction = RootAction.Main(givenMainAction)

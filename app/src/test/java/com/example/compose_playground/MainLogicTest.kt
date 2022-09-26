@@ -16,12 +16,19 @@
 package com.example.compose_playground
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import app.cash.molecule.RecompositionClock
 import app.cash.molecule.moleculeFlow
 import app.cash.turbine.test
 import com.example.compose_playground.greeting.GreetingAction
 import com.example.compose_playground.greeting.GreetingState
+import com.example.compose_playground.greeting.givenGreetingAction
+import com.example.compose_playground.greeting.givenGreetingState
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -30,30 +37,40 @@ class MainLogicTest {
 
     @Test
     fun launchMainPresenter() = runTest {
-        val expectedAction = MainAction.LaunchGreeting(GreetingAction.Display(10))
-        val expectedState = MainState(
-            stack = persistentListOf(MainPageState.Greeting(GreetingState.Greeting(11, "page 11"))),
-            lastAction = expectedAction
-        )
+        val downstreamStates = MutableSharedFlow<MainState>()
+        val upstreamActions = Channel<MainAction>()
         moleculeFlow(clock = RecompositionClock.Immediate) {
             MainPresenter(
-                action = expectedAction,
-                state = expectedState,
-                greetingPresenter = {
-                    greetingPresenterFake(
-                        action = GreetingAction.Display(10),
-                        result = GreetingState.Greeting(11, "page 11")
-                    )
-                }
+                downstreamStates = downstreamStates,
+                state = initialMainState,
+                upstreamActions = upstreamActions.receiveAsFlow(),
+                greetingPresenter = { ss, a -> greetingPresenterFake(ss, a) }
             )
+            initialMainState
         }
             .test {
-                assertEquals(expectedState, awaitItem())
+                assertEquals(initialMainState, awaitItem())
+                downstreamStates.test {
+                    upstreamActions.send(givenMainAction)
+                    assertEquals(givenMainState, awaitItem())
+                }
             }
     }
 
     @Composable
-    fun greetingPresenterFake(action: GreetingAction, result: GreetingState): GreetingState {
-        return result
+    fun greetingPresenterFake(
+        states: MutableSharedFlow<GreetingState>,
+        actions: Flow<GreetingAction>,
+    ) {
+        LaunchedEffect(actions) {
+            actions.collect {
+                states.emit(givenGreetingState)
+            }
+        }
     }
+
 }
+
+val givenMainAction = MainAction.LaunchGreeting(givenGreetingAction)
+val givenMainState =
+    MainState(stack = persistentListOf(MainPageState.Greeting(givenGreetingState)))
