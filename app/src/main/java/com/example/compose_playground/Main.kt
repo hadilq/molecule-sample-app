@@ -31,6 +31,7 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import java.util.*
 
 typealias MainPresenterType = @Composable (states: MutableSharedFlow<MainState>, state: MainState, actions: Flow<MainAction>) -> Unit
 
@@ -48,23 +49,11 @@ sealed interface MainPageState {
 sealed interface MainAction {
     data class LaunchGreeting(val greetingAction: GreetingAction) : MainAction
 
-    sealed interface PopStack : MainAction {
-        object Flip : PopStack
-        object Flop : PopStack
-    }
+    data class PopStack(val id: UUID = UUID.randomUUID()) : MainAction
 }
 
 val initialMainAction: MainAction = MainAction.LaunchGreeting(initialGreetingAction)
 val initialMainState: MainState = MainState(persistentListOf())
-
-/**
- * Because `MainAction.PopStack` shouldn't have properties, we use the flip-flop strategy to avoid
- * recomposition to fall into an infinite loop!
- */
-fun ((MainAction) -> Unit).popStack() {
-    invoke(MainAction.PopStack.Flip)
-    invoke(MainAction.PopStack.Flop)
-}
 
 class MainActivity : ComponentActivity() {
 
@@ -90,7 +79,7 @@ class MainActivity : ComponentActivity() {
             }
             BackHandler(true) {
                 Log.d("MainActivity", "onBackPressed")
-                mainAction.popStack()
+                mainAction(MainAction.PopStack())
             }
         }
     }
@@ -133,14 +122,19 @@ fun MainPresenter(
                     greetingPresenter(states = greetingStateFlow, actions = greetingActionFlow)
                 }
             }
-            is MainAction.PopStack.Flip -> Unit
-            is MainAction.PopStack.Flop -> {
+            is MainAction.PopStack -> {
                 LaunchedEffect(action) {
-                    Log.d("MainPresenter", "LaunchedEffect: MainAction.PopStack stack ${state.stack}")
+                    Log.d(
+                        "MainPresenter",
+                        "LaunchedEffect: MainAction.PopStack stack ${state.stack}"
+                    )
                     val stack = if (state.stack.size > 1) {
                         state.stack.removeAt(state.stack.size - 1)
                     } else state.stack
-                    Log.d("MainPresenter", "LaunchedEffect: MainAction.PopStack stack after: $stack")
+                    Log.d(
+                        "MainPresenter",
+                        "LaunchedEffect: MainAction.PopStack stack after: $stack"
+                    )
                     downstreamStates.emit(MainState(stack))
                 }
             }
@@ -161,7 +155,7 @@ fun Main(action: (MainAction) -> Unit, state: MainState) {
                 when (it) {
                     is GreetingAction.Display -> action(MainAction.LaunchGreeting(it))
                     is GreetingAction.Previous -> {
-                        action.popStack()
+                        action(MainAction.PopStack())
                     }
                 }
             },
